@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<!-- Microphone permission for voice agent -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs microphone access to enable the voice agent feature. The microphone is used to capture your voice questions and allow the AI assistant to respond with voice.</string>
+	<!-- Camera permission (optional, for future video features) -->
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access may be needed for future video features.</string>
 </dict>
 </plist>

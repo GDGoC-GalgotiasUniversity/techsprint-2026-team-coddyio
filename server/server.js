@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const { RtcTokenBuilder, RtcRole } = require('agora-token');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,6 +28,110 @@ const sensorSchema = new mongoose.Schema({
 const SensorData = mongoose.model('SensorData', sensorSchema);
 
 // Routes
+
+// GET credentials for mobile app (voice agent configuration)
+app.get('/api/config/credentials', (req, res) => {
+  try {
+    // Return only non-sensitive configuration
+    const credentials = {
+      gemini: {
+        apiKey: process.env.GEMINI_API_KEY,
+        model: process.env.GEMINI_MODEL || 'gemini-2.0-flash'
+      },
+      agora: {
+        appId: process.env.AGORA_APP_ID,
+        customerId: process.env.AGORA_CUSTOMER_ID,
+        customerSecret: process.env.AGORA_CUSTOMER_SECRET
+      },
+      cartesia: {
+        apiKey: process.env.CARTESIA_API_KEY,
+        modelId: process.env.CARTESIA_MODEL_ID || 'sonic-2',
+        voiceId: process.env.CARTESIA_VOICE_ID
+      }
+    };
+
+    // Validate that all required credentials are present
+    const missing = [];
+    if (!credentials.gemini.apiKey) missing.push('GEMINI_API_KEY');
+    if (!credentials.agora.appId) missing.push('AGORA_APP_ID');
+    if (!credentials.agora.customerId) missing.push('AGORA_CUSTOMER_ID');
+    if (!credentials.agora.customerSecret) missing.push('AGORA_CUSTOMER_SECRET');
+    if (!credentials.cartesia.apiKey) missing.push('CARTESIA_API_KEY');
+    if (!credentials.cartesia.voiceId) missing.push('CARTESIA_VOICE_ID');
+
+    if (missing.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing credentials',
+        missing: missing
+      });
+    }
+
+    res.json({
+      success: true,
+      credentials: credentials
+    });
+  } catch (error) {
+    console.error('Error fetching credentials:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// POST endpoint for RTC token generation
+app.post('/api/rtc-token', (req, res) => {
+  try {
+    const { channelName, uid } = req.body;
+
+    if (!channelName || uid === undefined) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing channelName or uid'
+      });
+    }
+
+    // Get Agora credentials from environment
+    const appId = process.env.AGORA_APP_ID;
+    const appCertificate = process.env.AGORA_APP_CERTIFICATE;
+
+    if (!appId || !appCertificate) {
+      // Return a demo token if credentials not configured
+      console.warn('Agora credentials not configured, returning demo token');
+      const demoToken = `demo_token_${channelName}_${uid}_${Date.now()}`;
+      return res.json({
+        success: true,
+        token: demoToken,
+        channelName: channelName,
+        uid: uid,
+        mode: 'demo'
+      });
+    }
+
+    // Generate proper RTC token
+    const expirationTimeInSeconds = 3600; // 1 hour
+    const currentTimestamp = Math.floor(Date.now() / 1000);
+    const privilegeExpiredTs = currentTimestamp + expirationTimeInSeconds;
+
+    const token = RtcTokenBuilder.buildTokenWithUid(
+      appId,
+      appCertificate,
+      channelName,
+      uid,
+      RtcRole.PUBLISHER,
+      privilegeExpiredTs
+    );
+
+    res.json({
+      success: true,
+      token: token,
+      channelName: channelName,
+      uid: uid,
+      expiresIn: expirationTimeInSeconds
+    });
+  } catch (error) {
+    console.error('Error generating RTC token:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
 
 // POST endpoint for NodeMCU to send data
 app.post('/api/ingest', async (req, res) => {
