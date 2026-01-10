@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block pagetitle %}
+Plant Disease Detection
+{% endblock pagetitle %}
+{% block body %}
+<style>
+  body{
+    overflow-x: hidden;
+  }
+  @media only screen and (max-width: 830px) {
+    .laptop{
+      display: none;
+    }
+  }
+  @media (min-width:830px) and (max-width: 1536px){
+    .mobile{
+      display: none;
+    }
+  }
+</style>
+<div class='mobile p-5'>
+  <div class="row mb-5 text-center text-white">
+    <div class="col-lg-10 mx-auto">
+      <h1 class="display-4" style="padding-top: 2%;font-weight: 400;color:rgb(29, 205, 13);"><b>Note✍🏻</b></h1>
+      <p class="lead" style="font-weight: 500;color: black;">Please🙏 Open This Site On Laptop/PC 💻 Screen Only</p>
+      <p class="lead" style="font-weight: 500;color: black;">Thank You 🤝</p>    
+    </div>
+</div>
+</div>
+
+
+<div class="row mb-5 text-center text-white laptop">
+  <div class="col-lg-10 mx-auto">
+      <h1 class="display-4" style="padding-top: 2%;font-weight: 400;color: rgb(219, 110, 20);"><b>Plant Disease
+              Detection </b></h1>
+      <p class="lead" style="font-weight: 500;color: black;">Custom Backend Built to Perform inferences of Plant Disease detection.</p>
+  </div>
+</div>
+<br>
+
+  <!-- Animated Box for curl Command -->
+  <div class="row mt-5">
+    <div class="col-lg-8 mx-auto">
+        <div class="p-4 bg-success text-white shadow rounded-lg" style="animation: fadeIn 2s ease-in-out;">
+            <h5 class="text-center"><b>Test API with curl</b></h5>
+            <p>This project was built as a backend, However you can use ai engine directly from here also</p>
+            <p>For the Backend, you can send the request using Curl</p>
+            <p class="mb-1">curl command to test the routes:</p>
+            <pre class="bg-dark text-white p-3 rounded">
+curl -X POST -F "image=@/path/to/your/image.jpg" https://plant-dd-co9k.onrender.com/predict
+            </pre>
+
+            <p class="mb-1">Replace <code>/path/to/your/image.jpg</code> with the path to your image file.</p>
+            <p>This running on the free instance, it takes upto 50 second to active after inactivity. </p>
+        </div>
+    </div>
+</div>
+<!-- End Animated Box -->
+
+<div class="row mt-5">
+  <div class="col-lg-8 mx-auto">
+      <div class="p-4 bg-primary text-white shadow rounded-lg" style="animation: fadeIn 2s ease-in-out;">
+          <h5 class="text-center"><b>Returned Json information. </b></h5>
+
+          <p>This is sample returned json response. </p>
+
+          <pre class="bg-dark text-white p-3 rounded"> {"description":"Leaf scorch symptoms are very similar to the early stages of common (Mycosphaerella) leaf spot, with irregular dark purple spots being scattered over the upper leaf surface. As the spots enlarge, they begin to look like drops of tar, and are actually the accumulations of black fruiting bodies (acervuli) of the fungus. The centers of the spots remain purple (in Mycosphaerella leaf spot they are white) and there is no well-defined lesion border. In heavy infections, these regions coalesce and the tissue between the lesions often takes on a purplish to bright red color that is dependent on cultivar, temperature, or other factors. The leaves eventually turn brown, dry up, and curl at the margins giving the leaf a scorched appearance. Examination of the acervuli and conidial morphology can help to distinguish between leaf spot and leaf scorch at this advanced stage of disease. On the upper leaf surfaces of leaf scorch lesions, the acervuli are dark with glistening spore masses and dark apothecia. Petiole lesions are elongate, sunken, with a purplish to brown color and can kill the leaf by girdling the petiole. Runners, fruit stalks, fruit and caps can also become infected. Plants may become weakened and the number and vigor of crowns reduced. Infection predisposes the plants to winter and drought stress. In severe infestations, flowers and fruit may die.","image_url":"https://content.ces.ncsu.edu/media/images/17531_IMG_2126.JPG","prevent":"While leaf scorch on strawberry plants can be frustrating, there are some strategies which home gardeners may employ to help prevent its spread in the garden. The primary means of strawberry leaf scorch control should always be prevention. Since this fungal pathogen overwinters on the fallen leaves of infected plants, proper garden sanitation is key. This includes the removal of infected garden debris from the strawberry patch, as well as the frequent establishment of new strawberry transplants. The creation of new plantings and strawberry patches is key to maintaining a consistent strawberry harvest, as older plants are more likely to show signs of severe infection.","supplement_buy_link":"https://agribegri.com/products/buy-organic-fungicide-online--organic-fungicide-with-best-rate-.php","supplement_image_url":"https://encrypted-tbn3.gstatic.com/shopping?q=tbn:ANd9GcSV3dLQAuhGWWsZSX3Ray15J_uSeFgSo7oLE0G2BxPFSwVNnOUY7VsBbLzDbw_mzUw3ZFLaF4kPWPyzatefP2bnSZwEbwrYnGGYgEl8rS6XWmwRnloOWnwy&usqp=CAE","supplement_name":"Greatindos Premium Quality All in 1 Organic Fungicide","title":"Strawberry : Leaf Scorch"}
+          </pre>
+          <p>This box contains key details about the "Strawberry: Leaf Scorch" disease, including its symptoms, prevention, and treatment options.</p>
+
+          <p><b>Description:</b> A common fungal disease that causes irregular purple spots on strawberry leaves. Severe infection can lead to significant crop loss due to reduced leaf area.</p>
+
+          <p><b>Prevention:</b> Ensure proper plant spacing for air circulation, avoid overhead watering, and use fungicides as a preventive measure.</p>
+
+          <p><b>Supplement:</b> Use <span class="text-warning"><b>Fungicide ABC</b></span> to treat and prevent the spread of Leaf Scorch. <a href="https://example.com/buy-fungicide-abc" target="_blank" class="text-warning">Buy here</a>.</p>
+
+          <div class="text-center my-3">
+              <img src="https://example.com/leaf-scorch-image.jpg" alt="Leaf Scorch Symptoms" class="img-fluid rounded">
+          </div>
+
+          <div class="text-center my-3">
+              <img src="https://example.com/fungicide-abc-image.jpg" alt="Fungicide ABC" class="img-fluid rounded">
+          </div>
+
+          <p><b>Title:</b> Strawberry: Leaf Scorch</p>
+      </div>
+  </div>
+</div>
+<!-- End Animated Box -->
+
+<br>
+
+<center class="laptop">
+    <a href="/index">
+    <button class = "bttn-pill bttn-lg btn-success"><b style="color: black;">AI Engine</b></button>
+</a>
+</center>
+
+
+
+{% endblock body %}

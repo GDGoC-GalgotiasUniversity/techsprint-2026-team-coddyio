@@ -7,6 +7,7 @@ import '../widgets/mini_chart.dart';
 import 'history_screen.dart';
 import 'ai_chat_screen.dart';
 import 'voice_agent_screen.dart';
+import 'plant_disease_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

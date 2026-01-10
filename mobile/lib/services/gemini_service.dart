@@ -72,4 +72,21 @@ User Question: $question
       return 'Error: ${e.toString()}';
     }
   }
+
+  /// Get home remedies for plant disease
+  Future<String> getRemedieSuggestions(String prompt) async {
+    if (_apiKey == null || _modelName == null) {
+      final initialized = await initialize();
+      if (!initialized) {
+        return "Gemini service not initialized. Please check server configuration.";
+      }
+    }
+
+    try {
+      final response = await _model.generateContent([Content.text(prompt)]);
+      return response.text ?? 'Sorry, I could not generate remedies.';
+    } catch (e) {
+      return 'Error: ${e.toString()}';
+    }
+  }
 }

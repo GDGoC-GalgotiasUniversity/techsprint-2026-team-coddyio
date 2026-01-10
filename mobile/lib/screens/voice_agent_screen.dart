@@ -185,6 +185,9 @@ class _VoiceAgentScreenState extends State<VoiceAgentScreen> {
         throw Exception('Failed to join RTC channel');
       }
 
+      // Wait a moment for channel join to fully complete
+      await Future.delayed(const Duration(milliseconds: 500));
+
       setState(() {
         _statusMessage = 'Starting AI agent...';
       });

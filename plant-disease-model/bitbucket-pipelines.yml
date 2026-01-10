@@ -1,0 +1,9 @@
+- pipe: atlassian/heroku-deploy:2.4.0
+  variables:
+    HEROKU_API_KEY: 'HRKU-e172830f-cafc-4554-b7c3-c9b424b7e8fd'
+    HEROKU_APP_NAME: 'plant-dd'
+    ACTION: 'deploy' # Optional. 'update' or 'deploy' # Default 'deploy'.
+    ZIP_FILE: 'deploy' # Optional. 'ACTION' 'deploy' specific.
+    WAIT: 'deploy' # Optional. 'ACTION' 'deploy' specific # Default: 'false'.
+    CONFIG_VARS: 'deploy' # Optional. 'ACTION' 'update' specific.
+    DEBUG: 'false' # Optional. # Default: 'false'.
