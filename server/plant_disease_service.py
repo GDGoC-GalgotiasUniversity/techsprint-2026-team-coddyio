@@ -10,18 +10,7 @@ from PIL import Image
 import numpy as np
 import sys
 import json
-import base64
-from io import BytesIO
 import os
-
-# Add plant-disease-model to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'plant-disease-model'))
-
-try:
-    import CNN
-except ImportError:
-    print("Error: Could not import CNN module. Make sure plant-disease-model is in the correct location.")
-    sys.exit(1)
 
 # Disease class mapping
 DISEASE_CLASSES = {
@@ -67,47 +56,46 @@ DISEASE_CLASSES = {
 }
 
 class PlantDiseaseDetector:
-    def __init__(self, model_path='../plant-disease-model/plant_disease_model_1_latest.pt'):
+    def __init__(self):
         """Initialize the plant disease detection model"""
         try:
-            print("🌱 Initializing Plant Disease Detection Model...")
+            # Add plant-disease-model to path
+            model_dir = os.path.join(os.path.dirname(__file__), '..', 'plant-disease-model')
+            sys.path.insert(0, model_dir)
             
-            # Load model
-            self.model = CNN.CNN(39)  # 39 classes
+            # Import CNN
+            import CNN
             
-            # Check if model file exists
+            # Model path
+            model_path = os.path.join(model_dir, 'plant_disease_model_1_latest.pt')
+            
             if not os.path.exists(model_path):
                 raise FileNotFoundError(f"Model file not found: {model_path}")
             
-            # Load weights
+            # Load model
+            self.model = CNN.CNN(39)  # 39 classes
             self.model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
             self.model.eval()
             
-            print("✅ Model loaded successfully")
-            print(f"📊 Classes: {len(DISEASE_CLASSES)}")
-            print("🎯 Ready for inference")
-            
         except Exception as e:
-            print(f"❌ Error initializing model: {e}")
-            raise
+            raise Exception(f"Failed to initialize model: {str(e)}")
 
-    def predict(self, image_input):
+    def predict(self, image_path):
         """
-        Predict plant disease from image
+        Predict plant disease from image file
         
         Args:
-            image_input: PIL Image or base64 string
+            image_path: Path to image file
             
         Returns:
             dict with prediction results
         """
         try:
-            # Convert base64 to PIL Image if needed
-            if isinstance(image_input, str):
-                image_data = base64.b64decode(image_input)
-                image = Image.open(BytesIO(image_data))
-            else:
-                image = image_input
+            # Load image
+            if not os.path.exists(image_path):
+                raise FileNotFoundError(f"Image file not found: {image_path}")
+            
+            image = Image.open(image_path)
             
             # Ensure RGB
             if image.mode != 'RGB':
@@ -134,7 +122,7 @@ class PlantDiseaseDetector:
             top_predictions = [
                 {
                     'class': DISEASE_CLASSES.get(idx.item(), 'Unknown'),
-                    'confidence': prob.item()
+                    'confidence': float(prob.item())
                 }
                 for prob, idx in zip(top_probs[0], top_indices[0])
             ]
@@ -142,7 +130,7 @@ class PlantDiseaseDetector:
             return {
                 'success': True,
                 'prediction': disease_name,
-                'confidence': confidence,
+                'confidence': float(confidence),
                 'class_index': predicted_idx,
                 'top_predictions': top_predictions,
                 'is_healthy': 'healthy' in disease_name.lower()
@@ -155,20 +143,22 @@ class PlantDiseaseDetector:
             }
 
 def main():
-    """Main function for testing"""
+    """Main function"""
     if len(sys.argv) < 2:
-        print("Usage: python plant_disease_service.py <image_path>")
+        result = {'success': False, 'error': 'Usage: python plant_disease_service.py <image_path>'}
+        print(json.dumps(result))
         sys.exit(1)
     
     image_path = sys.argv[1]
     
     try:
         detector = PlantDiseaseDetector()
-        image = Image.open(image_path)
-        result = detector.predict(image)
-        print(json.dumps(result, indent=2))
+        result = detector.predict(image_path)
+        print(json.dumps(result))
+        sys.exit(0 if result.get('success') else 1)
     except Exception as e:
-        print(json.dumps({'success': False, 'error': str(e)}))
+        result = {'success': False, 'error': str(e)}
+        print(json.dumps(result))
         sys.exit(1)
 
 if __name__ == '__main__':

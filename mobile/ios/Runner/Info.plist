@@ -48,8 +48,11 @@
 	<!-- Microphone permission for voice agent -->
 	<key>NSMicrophoneUsageDescription</key>
 	<string>This app needs microphone access to enable the voice agent feature. The microphone is used to capture your voice questions and allow the AI assistant to respond with voice.</string>
-	<!-- Camera permission (optional, for future video features) -->
+	<!-- Camera permission for plant disease detection -->
 	<key>NSCameraUsageDescription</key>
-	<string>Camera access may be needed for future video features.</string>
+	<string>Camera access is needed to capture photos of plants for disease detection analysis.</string>
+	<!-- Photo library permission for plant disease detection -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Photo library access is needed to select plant photos for disease detection analysis.</string>
 </dict>
 </plist>

@@ -9,6 +9,10 @@ The plant disease detection feature is now fully integrated with:
 - Disease information retrieval
 - AI-powered treatment recommendations via Gemini
 
+## Accessing Plant Disease Detection
+
+From the home screen, click the **🌿 Plant Disease** button (leaf icon) in the top app bar to open the detection screen.
+
 ## Testing Checklist
 
 ### 1. Setup Verification

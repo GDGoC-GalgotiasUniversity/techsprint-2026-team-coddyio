@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/sensor_data.dart';
+import '../models/plant_status.dart';
 import '../models/voice_session.dart';
 import '../services/agora_rtc_service.dart';
 import '../services/agora_conversational_ai_service.dart';
@@ -21,8 +22,10 @@ class VoiceAgentScreen extends StatefulWidget {
 class _VoiceAgentScreenState extends State<VoiceAgentScreen> {
   late AgoraRtcService _agoraRtcService;
   late AgoraConversationalAIService _agoraAIService;
+  final ApiService _apiService = ApiService();
 
   VoiceSession? _currentSession;
+  PlantStatus? _plantStatus;
   bool _isInitializing = false;
   bool _isSessionActive = false;
   bool _isMicrophoneEnabled = true;
@@ -37,6 +40,17 @@ class _VoiceAgentScreenState extends State<VoiceAgentScreen> {
     _agoraAIService = AgoraConversationalAIService();
     _setupEventHandlers();
     _requestPermissionsOnInit();
+    _fetchPlantStatus();
+  }
+
+  /// Fetch plant status
+  Future<void> _fetchPlantStatus() async {
+    final status = await _apiService.getPlantStatus();
+    if (mounted) {
+      setState(() {
+        _plantStatus = status;
+      });
+    }
   }
 
   /// Request microphone permission on screen init
@@ -194,12 +208,12 @@ class _VoiceAgentScreenState extends State<VoiceAgentScreen> {
 
       // Start conversational AI agent
       final systemMessage = _buildSystemMessage();
+      final greetingMessage = _buildGreetingMessage();
       final agentResult = await _agoraAIService.startAgent(
         channelName: channelName,
         rtcToken: rtcToken,
         systemMessage: systemMessage,
-        greetingMessage:
-            'Hello! I am your agricultural assistant. How can I help you with your farm today?',
+        greetingMessage: greetingMessage,
       );
 
       if (!agentResult['success']) {
@@ -290,14 +304,48 @@ class _VoiceAgentScreenState extends State<VoiceAgentScreen> {
 
   /// Build system message with sensor context
   String _buildSystemMessage() {
+    String plantContext = '';
+    String plantAdvice = '';
+
+    if (_plantStatus != null && _plantStatus!.hasPlant) {
+      final plantName = _plantStatus!.plantType ?? 'your plant';
+      plantContext =
+          '''
+🌱 Plant Information:
+- Plant Type: $plantName
+- Status: Active monitoring
+
+You are providing care advice specifically for $plantName based on current conditions.
+''';
+
+      plantAdvice =
+          '''
+
+PLANT-SPECIFIC GUIDANCE FOR $plantName:
+- Tailor all recommendations to $plantName's specific needs
+- Consider optimal temperature, humidity, and soil moisture ranges for $plantName
+- Provide specific care tips relevant to $plantName
+- Mention any seasonal considerations for $plantName
+''';
+    } else {
+      plantContext = '''
+Plant Information:
+- Status: No plant currently being monitored
+
+Provide general environmental and agricultural recommendations.
+''';
+    }
+
     if (widget.sensorData == null) {
       return '''You are an expert agricultural assistant for IoT-based farm monitoring. 
+$plantContext
 Help farmers understand their sensor data and provide actionable recommendations.
 Be concise, friendly, and practical in your responses.''';
     }
 
     final sensor = widget.sensorData!;
     return '''You are an expert agricultural assistant for IoT-based farm monitoring.
+$plantContext
 Current farm conditions:
 - Temperature: ${sensor.temperature.toStringAsFixed(1)}°C
 - Humidity: ${sensor.humidity.toStringAsFixed(1)}%
@@ -305,7 +353,15 @@ Current farm conditions:
 - Last Updated: ${sensor.timestamp}
 
 Help farmers understand their sensor data and provide actionable recommendations based on these readings.
-Be concise, friendly, and practical in your responses.''';
+Be concise, friendly, and practical in your responses.$plantAdvice''';
+  }
+
+  /// Build greeting message with plant name
+  String _buildGreetingMessage() {
+    if (_plantStatus?.hasPlant == true && _plantStatus?.plantType != null) {
+      return 'Hello! I see you have a ${_plantStatus!.plantType}. I am your agricultural assistant. How can I help you care for your ${_plantStatus!.plantType} today?';
+    }
+    return 'Hello! I am your agricultural assistant. How can I help you with your farm today?';
   }
 
   /// Generate RTC token from server

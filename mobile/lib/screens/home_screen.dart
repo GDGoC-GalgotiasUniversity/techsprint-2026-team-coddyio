@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import '../models/sensor_data.dart';
+import '../models/plant_status.dart';
 import '../services/api_service.dart';
+import '../services/threshold_service.dart';
+import '../services/notification_service.dart';
 import '../widgets/sensor_card.dart';
 import '../widgets/mini_chart.dart';
 import 'history_screen.dart';
@@ -18,7 +21,11 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final ApiService _apiService = ApiService();
+  final TextEditingController _plantNameController = TextEditingController();
+  final ThresholdService _thresholdService = ThresholdService();
+  final NotificationService _notificationService = NotificationService();
   SensorData? _latestData;
+  PlantStatus? _plantStatus;
   final List<SensorData> _recentReadings = [];
   bool _isLoading = true;
   Timer? _timer;
@@ -27,6 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _fetchPlantStatus();
     _fetchLatestData();
     _timer = Timer.periodic(
       const Duration(seconds: 3),
@@ -36,8 +44,22 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _plantNameController.dispose();
     _timer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _fetchPlantStatus() async {
+    final status = await _apiService.getPlantStatus();
+    if (mounted) {
+      setState(() {
+        _plantStatus = status;
+        // Set plant name in controller if it exists
+        if (status?.plantType != null) {
+          _plantNameController.text = status!.plantType!;
+        }
+      });
+    }
   }
 
   Future<void> _fetchLatestData() async {
@@ -55,6 +77,55 @@ class _HomeScreenState extends State<HomeScreen> {
           _recentReadings.removeAt(0);
         }
       });
+
+      // Check thresholds and send notifications
+      _checkThresholdsAndNotify(data);
+    }
+  }
+
+  /// Check sensor thresholds and send notifications
+  Future<void> _checkThresholdsAndNotify(SensorData data) async {
+    try {
+      final alerts = await _thresholdService.checkThresholds(data);
+
+      for (final alert in alerts) {
+        print('🔔 Alert: ${alert.title}');
+        // Show local notification
+        await _notificationService.showNotification(
+          title: alert.title,
+          body: alert.message,
+          payload: {
+            'type': alert.type.toString(),
+            'sensorType': alert.sensorType,
+            'value': alert.value.toString(),
+            'unit': alert.unit,
+          },
+        );
+      }
+    } catch (e) {
+      print('Error checking thresholds: $e');
+    }
+  }
+
+  Future<void> _updatePlantStatus(bool hasPlant, {String? plantName}) async {
+    final success = await _apiService.updatePlantStatus(
+      hasPlant,
+      plantType: plantName,
+    );
+    if (success) {
+      await _fetchPlantStatus();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              hasPlant
+                  ? '✅ Plant status updated${plantName != null && plantName.isNotEmpty ? ': $plantName' : ''}'
+                  : '❌ Plant status updated',
+            ),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     }
   }
 
@@ -92,6 +163,25 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         backgroundColor: Colors.white,
         actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.nature, color: Color(0xFF2E7D32)),
+              tooltip: 'Plant Disease',
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PlantDiseaseScreen(),
+                  ),
+                );
+              },
+            ),
+          ),
           Container(
             margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(
@@ -232,6 +322,174 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Plant Status Card
+                  Card(
+                    elevation: 4,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(20.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: const Color(
+                                    0xFF4CAF50,
+                                  ).withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(
+                                  Icons.eco,
+                                  color: Color(0xFF2E7D32),
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              const Text(
+                                'Do you have a plant?',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF2E7D32),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _updatePlantStatus(true),
+                                  icon: const Icon(Icons.check),
+                                  label: const Text('Yes, I have'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor:
+                                        _plantStatus?.hasPlant == true
+                                        ? Colors.green
+                                        : Colors.grey[300],
+                                    foregroundColor:
+                                        _plantStatus?.hasPlant == true
+                                        ? Colors.white
+                                        : Colors.black,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _updatePlantStatus(false),
+                                  icon: const Icon(Icons.close),
+                                  label: const Text('No, I don\'t'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor:
+                                        _plantStatus?.hasPlant == false
+                                        ? Colors.red
+                                        : Colors.grey[300],
+                                    foregroundColor:
+                                        _plantStatus?.hasPlant == false
+                                        ? Colors.white
+                                        : Colors.black,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (_plantStatus?.hasPlant == true) ...[
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: _plantNameController,
+                              decoration: InputDecoration(
+                                hintText:
+                                    'Enter plant name (e.g., Tomato, Rose)',
+                                prefixIcon: const Icon(Icons.local_florist),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                              ),
+                              onChanged: (value) {
+                                _updatePlantStatus(true, plantName: value);
+                              },
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(
+                                    Icons.check_circle,
+                                    color: Colors.green,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _plantNameController.text.isNotEmpty
+                                          ? '🌱 ${_plantNameController.text} - Ready for disease detection'
+                                          : 'Great! You can use Plant Disease Detection',
+                                      style: const TextStyle(
+                                        color: Colors.green,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else if (_plantStatus?.hasPlant == false) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.orange.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(
+                                    Icons.info,
+                                    color: Colors.orange,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Plant Disease Detection will be available when you have a plant',
+                                      style: TextStyle(
+                                        color: Colors.orange,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),

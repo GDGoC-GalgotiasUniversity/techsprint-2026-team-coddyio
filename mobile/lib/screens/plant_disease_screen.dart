@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:image/image.dart' as img;
+import 'package:permission_handler/permission_handler.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import '../models/plant_disease_result.dart';
@@ -29,8 +30,28 @@ class _PlantDiseaseScreenState extends State<PlantDiseaseScreen> {
   bool _isLoadingRemedies = false;
   bool _isLoadingInfo = false;
   String? _uploadProgress;
+  String? _plantName;
 
-  /// Compress image to reduce upload size
+  @override
+  void initState() {
+    super.initState();
+    _fetchPlantName();
+  }
+
+  /// Fetch plant name from API
+  Future<void> _fetchPlantName() async {
+    try {
+      final status = await _apiService.getPlantStatus();
+      if (mounted && status?.hasPlant == true && status?.plantType != null) {
+        setState(() {
+          _plantName = status!.plantType;
+        });
+      }
+    } catch (e) {
+      print('Error fetching plant name: $e');
+    }
+  }
+
   Future<Uint8List> _compressImage(File imageFile) async {
     try {
       final imageBytes = await imageFile.readAsBytes();
@@ -61,10 +82,36 @@ class _PlantDiseaseScreenState extends State<PlantDiseaseScreen> {
     }
   }
 
+  /// Request camera or photo library permissions
+  Future<bool> _requestPermission(Permission permission) async {
+    try {
+      final status = await permission.request();
+      return status.isGranted;
+    } catch (e) {
+      print('❌ Error requesting permission: $e');
+      return false;
+    }
+  }
+
   /// Pick image from camera or gallery
   Future<void> _pickImage(ImageSource source) async {
     try {
       print('📸 Picking image from ${source.name}...');
+
+      // Request appropriate permission
+      final permission = source == ImageSource.camera
+          ? Permission.camera
+          : Permission.photos;
+
+      final hasPermission = await _requestPermission(permission);
+
+      if (!hasPermission) {
+        _showErrorDialog(
+          'Permission Denied',
+          'Please grant ${source == ImageSource.camera ? 'camera' : 'photo library'} permission to use this feature.',
+        );
+        return;
+      }
 
       final pickedFile = await _imagePicker.pickImage(
         source: source,
@@ -87,14 +134,14 @@ class _PlantDiseaseScreenState extends State<PlantDiseaseScreen> {
       }
     } catch (e) {
       print('❌ Error picking image: $e');
-      _showErrorDialog('Error picking image: $e');
+      _showErrorDialog('Error', 'Error picking image: $e');
     }
   }
 
   /// Detect plant disease from selected image
   Future<void> _detectDisease() async {
     if (_selectedImage == null) {
-      _showErrorDialog('Please select an image first');
+      _showErrorDialog('Error', 'Please select an image first');
       return;
     }
 
@@ -137,7 +184,7 @@ class _PlantDiseaseScreenState extends State<PlantDiseaseScreen> {
           _isLoading = false;
           _uploadProgress = 'Error: $e';
         });
-        _showErrorDialog('Error detecting disease: $e');
+        _showErrorDialog('Error', 'Error detecting disease: $e');
       }
     }
   }
@@ -179,19 +226,37 @@ class _PlantDiseaseScreenState extends State<PlantDiseaseScreen> {
         throw Exception('Failed to initialize Gemini service');
       }
 
+      // Build plant-specific prompt
+      String plantContext = '';
+      if (_plantName != null && _plantName!.isNotEmpty) {
+        plantContext = 'The plant is a $_plantName. ';
+      }
+
+      // Use simple, layman-friendly home remedies
       final prompt =
-          '''
-You are an expert agricultural advisor. A plant disease has been detected: $disease
+          '''You are a helpful farmer's assistant. A plant has a problem: $disease
+${plantContext}Give SIMPLE home remedies using things farmers already have at home. Use EASY words, not scientific terms.
 
-Please provide:
-1. Brief description of the disease (2-3 sentences)
-2. Home remedies and natural treatments (5-7 practical solutions)
-3. Prevention tips for the future
-4. When to seek professional help
+Format like this:
 
-Format your response clearly with sections and bullet points for easy reading.
-Keep it practical and actionable for a farmer.
-''';
+🏥 WHAT TO DO RIGHT NOW (Easy Fixes):
+• Mix baking soda with water and spray on leaves (1 spoon baking soda in 1 bucket water)
+• Pick off the bad leaves by hand and throw away
+• Cut branches to let air flow through the plant
+• Spray cooking oil mixed with water (few drops oil in water)
+
+🛡️ HOW TO STOP IT HAPPENING AGAIN:
+• Water the soil, not the leaves
+• Put dry grass or leaves around the plant (mulch)
+• Don't plant the same crop in same spot next year
+• Keep plants far apart so air can move
+
+⚠️ WHEN TO GET HELP FROM EXPERT:
+• The problem keeps getting worse even after you try these
+• More than half the plant is damaged
+• The whole field is getting sick
+
+Use ONLY things a farmer has at home - no fancy chemicals. Keep it SHORT and easy to understand.''';
 
       final response = await _geminiService.getRemedieSuggestions(prompt);
 
@@ -212,11 +277,11 @@ Keep it practical and actionable for a farmer.
   }
 
   /// Show error dialog
-  void _showErrorDialog(String message) {
+  void _showErrorDialog(String title, String message) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Error'),
+        title: Text(title),
         content: Text(message),
         actions: [
           TextButton(
@@ -243,7 +308,20 @@ Keep it practical and actionable for a farmer.
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('🌱 Plant Disease Detection'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('🌱 Plant Disease Detection'),
+            if (_plantName != null && _plantName!.isNotEmpty)
+              Text(
+                'Monitoring: $_plantName',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+          ],
+        ),
         elevation: 0,
         actions: [
           if (_selectedImage != null)

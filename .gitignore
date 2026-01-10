@@ -11,6 +11,10 @@ package-lock.json
 .env.local
 .env.*.local
 
+# Firebase (keep credentials secret!)
+server/firebase-service-account.json
+firebase-service-account.json
+
 # Flutter/Dart
 mobile/.dart_tool/
 mobile/.flutter-plugins

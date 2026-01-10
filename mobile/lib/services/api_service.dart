@@ -4,11 +4,53 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import '../models/sensor_data.dart';
 import '../models/plant_disease_result.dart';
+import '../models/plant_status.dart';
 
 class ApiService {
-  // Change this to your server IP address
-  static const String baseUrl = 'http://10.10.180.11:3000/api';
+  // For Android emulator: use 10.0.2.2 to access host machine
+  // For physical device: use your actual server IP
+  static const String baseUrl = 'http://10.0.2.2:3000/api';
   static const Duration timeout = Duration(seconds: 5);
+
+  /// Get plant status (whether user has a plant or not)
+  Future<PlantStatus?> getPlantStatus() async {
+    try {
+      final response = await http
+          .get(Uri.parse('$baseUrl/plant-status'))
+          .timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data['success'] == true) {
+          return PlantStatus.fromJson(data['data']);
+        }
+      }
+    } catch (e) {
+      print('Error fetching plant status: $e');
+    }
+    return null;
+  }
+
+  /// Update plant status
+  Future<bool> updatePlantStatus(bool hasPlant, {String? plantType}) async {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/plant-status'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'hasPlant': hasPlant, 'plantType': plantType}),
+          )
+          .timeout(timeout);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        return data['success'] == true;
+      }
+    } catch (e) {
+      print('Error updating plant status: $e');
+    }
+    return false;
+  }
 
   Future<SensorData?> getLatestReading() async {
     try {
@@ -101,5 +143,29 @@ class ApiService {
       print('Error getting disease info: $e');
     }
     return null;
+  }
+
+  /// Register FCM token with server
+  Future<bool> registerFCMToken(String token) async {
+    try {
+      final baseUrlWithoutApi = baseUrl.replaceAll('/api', '');
+      final url = '$baseUrlWithoutApi/api/fcm-token';
+
+      final response = await http
+          .post(
+            Uri.parse(url),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'token': token}),
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['success'] == true;
+      }
+    } catch (e) {
+      print('Error registering FCM token: $e');
+    }
+    return false;
   }
 }

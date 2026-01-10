@@ -28,6 +28,15 @@ const sensorSchema = new mongoose.Schema({
 
 const SensorData = mongoose.model('SensorData', sensorSchema);
 
+// Plant Status Schema
+const plantStatusSchema = new mongoose.Schema({
+  hasPlant: { type: Boolean, default: false },
+  plantType: { type: String, default: null },
+  lastUpdated: { type: Date, default: Date.now }
+});
+
+const PlantStatus = mongoose.model('PlantStatus', plantStatusSchema);
+
 // ============================================================================
 // AGORA CONVERSATIONAL AI SERVICE
 // ============================================================================
@@ -633,11 +642,85 @@ app.get('/health', (req, res) => {
 });
 
 // ============================================================================
+// PLANT STATUS ENDPOINTS
+// ============================================================================
+
+// GET plant status
+app.get('/api/plant-status', async (req, res) => {
+  try {
+    let status = await PlantStatus.findOne();
+    
+    // If no status exists, create default one
+    if (!status) {
+      status = new PlantStatus({ hasPlant: false });
+      await status.save();
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        hasPlant: status.hasPlant,
+        plantType: status.plantType,
+        lastUpdated: status.lastUpdated
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// POST/UPDATE plant status
+app.post('/api/plant-status', async (req, res) => {
+  try {
+    const { hasPlant, plantType } = req.body;
+    
+    let status = await PlantStatus.findOne();
+    
+    if (!status) {
+      status = new PlantStatus({
+        hasPlant,
+        plantType,
+        lastUpdated: new Date()
+      });
+    } else {
+      status.hasPlant = hasPlant;
+      status.plantType = plantType;
+      status.lastUpdated = new Date();
+    }
+    
+    await status.save();
+    
+    console.log(`🌱 Plant status updated: hasPlant=${hasPlant}, plantType=${plantType}`);
+    
+    res.json({
+      success: true,
+      data: {
+        hasPlant: status.hasPlant,
+        plantType: status.plantType,
+        lastUpdated: status.lastUpdated
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// ============================================================================
 // PLANT DISEASE DETECTION ENDPOINT
 // ============================================================================
 
 // POST endpoint for plant disease detection
 app.post('/api/plant-disease/detect', async (req, res) => {
+  const fs = require('fs');
+  const path = require('path');
+  const os = require('os');
+  
   try {
     const { image } = req.body;
 
@@ -650,11 +733,27 @@ app.post('/api/plant-disease/detect', async (req, res) => {
 
     console.log(`🌱 Detecting plant disease from image...`);
 
-    // Call Python service
+    // Write base64 image to temporary file
+    const tempDir = os.tmpdir();
+    const tempImagePath = path.join(tempDir, `plant_${Date.now()}.jpg`);
+    
+    try {
+      const imageBuffer = Buffer.from(image, 'base64');
+      fs.writeFileSync(tempImagePath, imageBuffer);
+      console.log(`📝 Temp image saved: ${tempImagePath}`);
+    } catch (writeError) {
+      console.error('❌ Error writing temp image:', writeError);
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to process image'
+      });
+    }
+
+    // Call Python service with file path instead of base64
     const { spawn } = require('child_process');
     const python = spawn('python', [
       './plant_disease_service.py',
-      image
+      tempImagePath
     ]);
 
     let output = '';
@@ -669,26 +768,56 @@ app.post('/api/plant-disease/detect', async (req, res) => {
     });
 
     python.on('close', (code) => {
+      // Clean up temp file
+      try {
+        if (fs.existsSync(tempImagePath)) {
+          fs.unlinkSync(tempImagePath);
+          console.log(`🗑️ Temp image cleaned up`);
+        }
+      } catch (cleanupError) {
+        console.warn('⚠️ Warning cleaning up temp file:', cleanupError.message);
+      }
+
       if (code !== 0) {
-        console.error('❌ Python error:', error);
+        console.error('❌ Python error (exit code ' + code + '):', error);
         return res.status(500).json({
           success: false,
           error: 'Plant disease detection failed',
-          details: error
+          details: error || 'No error output'
+        });
+      }
+
+      if (!output) {
+        console.error('❌ Python produced no output');
+        return res.status(500).json({
+          success: false,
+          error: 'Plant disease detection failed',
+          details: 'No output from Python service'
         });
       }
 
       try {
         const result = JSON.parse(output);
+        
+        if (!result.success) {
+          console.error('❌ Detection failed:', result.error);
+          return res.status(500).json({
+            success: false,
+            error: result.error || 'Detection failed'
+          });
+        }
+        
         console.log('✅ Plant disease detection complete');
         console.log(`🌿 Prediction: ${result.prediction}`);
         console.log(`📊 Confidence: ${(result.confidence * 100).toFixed(2)}%`);
         res.json(result);
       } catch (e) {
         console.error('❌ Error parsing Python output:', e);
+        console.error('Raw output:', output);
         res.status(500).json({
           success: false,
-          error: 'Failed to parse detection results'
+          error: 'Failed to parse detection results',
+          details: output
         });
       }
     });
@@ -729,53 +858,221 @@ app.get('/api/plant-disease/info/:disease', (req, res) => {
 function _getDiseaseRecommendations(disease) {
   const recommendations = {
     'Apple___Apple_scab': [
-      'Remove infected leaves and branches',
-      'Improve air circulation',
-      'Apply fungicide if needed',
-      'Prune in late winter'
+      'Mix baking soda with water and spray on leaves',
+      'Pick off bad leaves and throw away',
+      'Cut branches to let air flow',
+      'Spray cooking oil mixed with water'
     ],
     'Apple___Black_rot': [
-      'Remove infected fruit and branches',
-      'Prune dead wood',
-      'Apply copper fungicide',
-      'Improve drainage'
+      'Cut out the black parts with a knife',
+      'Spray baking soda solution on tree',
+      'Remove fallen fruit from ground',
+      'Make sure water drains well around tree'
     ],
     'Tomato___Early_blight': [
-      'Remove lower leaves',
-      'Improve air circulation',
-      'Water at soil level only',
-      'Apply fungicide weekly'
+      'Remove leaves touching the ground',
+      'Spray milk mixed with water (1 milk : 9 water)',
+      'Put dry grass around plant base',
+      'Water only the soil, not the leaves'
     ],
     'Tomato___Late_blight': [
-      'Remove infected leaves immediately',
-      'Improve air circulation',
-      'Apply copper or chlorothalonil fungicide',
-      'Avoid overhead watering'
+      'Pick off all bad leaves right away',
+      'Spray baking soda or cooking oil solution',
+      'Let air flow between plants',
+      'Never spray water on leaves'
     ],
     'Potato___Early_blight': [
-      'Remove infected leaves',
-      'Mulch around plants',
-      'Apply fungicide',
-      'Rotate crops'
+      'Remove leaves that look bad',
+      'Spray milk solution on plant',
+      'Put dry grass around plant',
+      'Plant potatoes in different spot next year'
     ],
     'Potato___Late_blight': [
-      'Remove infected plants',
-      'Apply fungicide immediately',
-      'Improve drainage',
-      'Avoid overhead watering'
+      'Remove the whole plant if very bad',
+      'Spray baking soda solution',
+      'Make sure soil drains water well',
+      'Never spray water on leaves'
+    ],
+    'Corn___Common_rust': [
+      'Remove leaves with rust spots',
+      'Spray cooking oil mixed with water',
+      'Let air flow between plants',
+      'Plant rust-resistant corn next time'
+    ],
+    'Corn___Northern_Leaf_Blight': [
+      'Remove bad leaves from plant',
+      'Spray baking soda solution',
+      'Plant in different spot next year',
+      'Plant disease-resistant corn'
+    ],
+    'Grape___Black_rot': [
+      'Remove grapes and leaves with black spots',
+      'Spray baking soda or sulfur powder',
+      'Cut branches to let air flow',
+      'Clean up fallen fruit and leaves'
+    ],
+    'Pepper,_bell___Bacterial_spot': [
+      'Remove leaves with spots',
+      'Spray baking soda solution',
+      'Never spray water on leaves',
+      'Let air flow between plants'
+    ],
+    'Strawberry___Leaf_scorch': [
+      'Remove bad leaves',
+      'Spray cooking oil mixed with water',
+      'Let air flow between plants',
+      'Water only the soil'
     ]
   };
   
   return recommendations[disease] || [
-    'Consult with a local agricultural extension office',
-    'Take photos for professional diagnosis',
-    'Isolate affected plants',
-    'Monitor for spread'
+    'Remove the bad leaves and throw away',
+    'Spray baking soda or cooking oil solution',
+    'Let air flow around the plant',
+    'Keep the plant away from others'
   ];
 }
+
+// ============================================================================
+// FCM NOTIFICATION SERVICE
+// ============================================================================
+
+const fcmService = require('./fcm-service');
+fcmService.initializeFirebase();
+
+// FCM Device Token Schema
+const fcmTokenSchema = new mongoose.Schema({
+  token: { type: String, required: true, unique: true },
+  createdAt: { type: Date, default: Date.now },
+  lastUsed: { type: Date, default: Date.now }
+});
+
+const FCMToken = mongoose.model('FCMToken', fcmTokenSchema);
+
+// POST endpoint to register FCM token
+app.post('/api/fcm-token', async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        error: 'FCM token is required'
+      });
+    }
+
+    // Save or update token
+    await FCMToken.findOneAndUpdate(
+      { token },
+      { lastUsed: new Date() },
+      { upsert: true, new: true }
+    );
+
+    console.log(`✅ FCM token registered: ${token.substring(0, 20)}...`);
+
+    res.json({
+      success: true,
+      message: 'FCM token registered successfully'
+    });
+  } catch (error) {
+    console.error('❌ Error registering FCM token:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// POST endpoint to send test notification
+app.post('/api/test-notification', async (req, res) => {
+  try {
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        error: 'FCM token is required'
+      });
+    }
+
+    const success = await fcmService.sendNotification(
+      token,
+      '🌱 Test Notification',
+      'FCM is working correctly! Your plant monitoring system is ready.',
+      {
+        type: 'TEST',
+        action: 'open_home_screen'
+      }
+    );
+
+    res.json({
+      success: success,
+      message: success ? 'Test notification sent' : 'Failed to send notification'
+    });
+  } catch (error) {
+    console.error('❌ Error sending test notification:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// POST endpoint to send alert notification
+app.post('/api/send-alert', async (req, res) => {
+  try {
+    const { token, alertType, sensorValue, unit, plantName } = req.body;
+
+    if (!token || !alertType || sensorValue === undefined || !unit) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing required fields: token, alertType, sensorValue, unit'
+      });
+    }
+
+    const success = await fcmService.sendAlertNotification(
+      token,
+      alertType,
+      sensorValue,
+      unit,
+      plantName
+    );
+
+    res.json({
+      success: success,
+      message: success ? 'Alert notification sent' : 'Failed to send alert'
+    });
+  } catch (error) {
+    console.error('❌ Error sending alert notification:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// GET endpoint to get all registered FCM tokens (for admin)
+app.get('/api/fcm-tokens', async (req, res) => {
+  try {
+    const tokens = await FCMToken.find().select('token createdAt lastUsed');
+
+    res.json({
+      success: true,
+      count: tokens.length,
+      tokens: tokens
+    });
+  } catch (error) {
+    console.error('❌ Error fetching FCM tokens:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 Accepting connections from all network interfaces`);
   console.log(`🌱 Plant Disease Detection API available at /api/plant-disease/detect`);
+  console.log(`📬 FCM Notification API available at /api/fcm-token`);
 });
