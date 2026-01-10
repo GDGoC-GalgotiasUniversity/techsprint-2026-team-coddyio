@@ -35,9 +35,6 @@ app.post('/api/ingest', async (req, res) => {
   try {
     const { temperature, humidity, soil_raw, soil_pct } = req.body;
     
-    // Delete all existing data and insert new one (keep only latest)
-    await SensorData.deleteMany({});
-    
     const sensorData = new SensorData({
       temperature,
       humidity,
@@ -46,7 +43,7 @@ app.post('/api/ingest', async (req, res) => {
     });
     
     await sensorData.save();
-    res.status(201).json({ success: true, message: 'Data replaced', id: sensorData._id });
+    res.status(201).json({ success: true, message: 'Data saved', id: sensorData._id });
   } catch (error) {
     console.error('Error saving data:', error);
     res.status(500).json({ success: false, error: error.message });

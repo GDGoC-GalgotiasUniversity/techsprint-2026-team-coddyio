@@ -4,7 +4,7 @@ import '../models/sensor_data.dart';
 class GeminiService {
   // Replace with your Gemini API key from https://makersuite.google.com/app/apikey
   static const String
-  apiKey = 'AIzaSyBNdTjEonDMxXgJqjXCdgXHGInBMRLlz70';
+  apiKey = 'AIzaSyB_5nuaBg9Hpg7LiCX7YsBgpyGv-KQHXro';
 
   late final GenerativeModel
   _model;

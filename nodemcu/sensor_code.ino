@@ -1,12 +1,11 @@
 #include <DHT.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266HTTPClient.h>
-#include <WiFiClient.h>          // use WiFiClientSecure for HTTPS
 
 // ----- Wi‑Fi & API -----
-const char* WIFI_SSID = "Airtel_wireless fidility";
-const char* WIFI_PASS = "jatingarg";
-const char* POST_URL  = "http://172.22.48.1:3000/api/ingest"; // e.g., http://IP:PORT/path
+const char* WIFI_SSID = "GALGOTIAS-ARUBA";
+const char* WIFI_PASS = "1234567@";
+const char* POST_URL  = "http://10.10.180.11:3000/api/ingest";
 
 // ----- Pins & sensor type (your wiring) -----
 #define DHTPIN 2                 // NodeMCU D4 = GPIO2 (keeps code portable even if D4 alias missing)
@@ -31,12 +30,14 @@ void waitForWiFi() {
   Serial.print("WiFi: ");
   int tries = 0;
   while (WiFi.status() != WL_CONNECTED && tries < 60) { // ~30s
-    delay(500); Serial.print(".");
+    delay(500);
+    Serial.print(".");
     tries++;
   }
   Serial.println();
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.print("WiFi OK, IP: "); Serial.println(WiFi.localIP());
+    Serial.print("WiFi OK, IP: ");
+    Serial.println(WiFi.localIP());
   } else {
     Serial.println("WiFi not connected (timeout). Will retry later.");
   }
@@ -66,32 +67,41 @@ void loop() {
   float soilPct = adcToPercent(soilRaw);
 
   // Print to Serial
-  Serial.print("Temp(C): ");  Serial.print(t, 1);
-  Serial.print(" | Hum(%): "); Serial.print(h, 1);
-  Serial.print(" | SoilRaw: "); Serial.print(soilRaw);
-  Serial.print(" | Soil(%): "); Serial.println(soilPct, 1);
+  Serial.print("Temp(C): ");
+  Serial.print(t, 1);
+  Serial.print(" | Hum(%): ");
+  Serial.print(h, 1);
+  Serial.print(" | SoilRaw: ");
+  Serial.print(soilRaw);
+  Serial.print(" | Soil(%): ");
+  Serial.println(soilPct, 1);
 
   // POST JSON if Wi‑Fi is up
   if (WiFi.status() != WL_CONNECTED) {
     waitForWiFi(); // try to reconnect
   }
+
   if (WiFi.status() == WL_CONNECTED) {
-    WiFiClient client;          // switch to WiFiClientSecure for HTTPS (see note)
+    WiFiClient client;  // Use standard client for HTTP
     HTTPClient http;
+
     if (http.begin(client, POST_URL)) {
       http.addHeader("Content-Type", "application/json");
 
       // Build compact JSON
-      String payload = String("{\"temperature\":") + String(t,1) +
-                       ",\"humidity\":" + String(h,1) +
+      String payload = String("{\"temperature\":") + String(t, 1) +
+                       ",\"humidity\":" + String(h, 1) +
                        ",\"soil_raw\":" + String(soilRaw) +
-                       ",\"soil_pct\":" + String(soilPct,1) + "}";
+                       ",\"soil_pct\":" + String(soilPct, 1) + "}";
 
       int code = http.POST(payload);
-      Serial.print("HTTP POST -> code: "); Serial.println(code);
+      Serial.print("HTTP POST -> code: ");
+      Serial.println(code);
+
       if (code > 0) {
         String body = http.getString();
-        Serial.print("Response: "); Serial.println(body);
+        Serial.print("Response: ");
+        Serial.println(body);
       }
       http.end();
     } else {
