@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../models/sensor_data.dart';
 import '../models/plant_status.dart';
 import '../services/gemini_service.dart';
@@ -30,11 +31,18 @@ class _AiChatScreenState extends State<AiChatScreen> {
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
   PlantStatus? _plantStatus;
+  SensorData? _sensorData;
+  Timer? _sensorTimer;
 
   @override
   void initState() {
     super.initState();
     _fetchPlantStatus();
+    _fetchSensorData();
+    // Fetch sensor data every 3 seconds
+    _sensorTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      _fetchSensorData();
+    });
     _addMessage(_getGreetingMessage(), isUser: false);
   }
 
@@ -42,7 +50,17 @@ class _AiChatScreenState extends State<AiChatScreen> {
   void dispose() {
     _controller.dispose();
     _scrollController.dispose();
+    _sensorTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _fetchSensorData() async {
+    final data = await _apiService.getLatestReading();
+    if (mounted) {
+      setState(() {
+        _sensorData = data;
+      });
+    }
   }
 
   String _getGreetingMessage() {
@@ -97,7 +115,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
 
     final response = await _geminiService.askQuestion(
       question,
-      widget.sensorData,
+      _sensorData ?? widget.sensorData,
       plantStatus: _plantStatus,
     );
 
@@ -153,7 +171,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
       body: Column(
         children: [
           // Sensor Data Display
-          if (widget.sensorData != null) _buildSensorDataBar(),
+          if (_sensorData != null) _buildSensorDataBar(),
 
           // Messages List
           Expanded(
@@ -198,17 +216,17 @@ class _AiChatScreenState extends State<AiChatScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildDataChip(
-            '${widget.sensorData!.temperature.toStringAsFixed(1)}°C',
+            '${_sensorData!.temperature.toStringAsFixed(1)}°C',
             Icons.thermostat,
             const Color(0xFFFF6F00),
           ),
           _buildDataChip(
-            '${widget.sensorData!.humidity.toStringAsFixed(1)}%',
+            '${_sensorData!.humidity.toStringAsFixed(1)}%',
             Icons.water_drop,
             const Color(0xFF0288D1),
           ),
           _buildDataChip(
-            '${widget.sensorData!.soilPct.toStringAsFixed(1)}%',
+            '${_sensorData!.soilPct.toStringAsFixed(1)}%',
             Icons.grass,
             const Color(0xFF388E3C),
           ),

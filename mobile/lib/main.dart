@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_navigation_screen.dart';
 import 'services/notification_service.dart';
 
 void main() async {
@@ -71,7 +71,7 @@ class KisanGuideApp extends StatelessWidget {
         ),
       ),
       themeMode: ThemeMode.system,
-      home: MainNavigationScreen(),
+      home: const MainNavigationScreen(),
     );
   }
 }

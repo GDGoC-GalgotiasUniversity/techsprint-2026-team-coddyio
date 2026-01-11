@@ -99,17 +99,23 @@ class _PlantDiseaseScreenState extends State<PlantDiseaseScreen> {
       print('📸 Picking image from ${source.name}...');
 
       // Request appropriate permission
-      final permission = source == ImageSource.camera
-          ? Permission.camera
-          : Permission.photos;
+      Permission permission;
+      if (source == ImageSource.camera) {
+        permission = Permission.camera;
+      } else {
+        // For Android 13+, use READ_MEDIA_IMAGES; for older versions, use READ_EXTERNAL_STORAGE
+        permission = Permission.photos;
+      }
 
       final hasPermission = await _requestPermission(permission);
 
       if (!hasPermission) {
-        _showErrorDialog(
-          'Permission Denied',
-          'Please grant ${source == ImageSource.camera ? 'camera' : 'photo library'} permission to use this feature.',
-        );
+        if (mounted) {
+          _showErrorDialog(
+            'Permission Denied',
+            'Please grant ${source == ImageSource.camera ? 'camera' : 'photo library'} permission to use this feature.',
+          );
+        }
         return;
       }
 
@@ -134,7 +140,9 @@ class _PlantDiseaseScreenState extends State<PlantDiseaseScreen> {
       }
     } catch (e) {
       print('❌ Error picking image: $e');
-      _showErrorDialog('Error', 'Error picking image: $e');
+      if (mounted) {
+        _showErrorDialog('Error', 'Error picking image: $e');
+      }
     }
   }
 
