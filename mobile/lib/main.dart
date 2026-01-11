@@ -71,7 +71,7 @@ class KisanGuideApp extends StatelessWidget {
         ),
       ),
       themeMode: ThemeMode.system,
-      home: const MainNavigationScreen(),
+      home: MainNavigationScreen(),
     );
   }
 }
