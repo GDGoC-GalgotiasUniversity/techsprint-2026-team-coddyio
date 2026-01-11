@@ -571,7 +571,21 @@ app.post('/api/ingest', async (req, res) => {
   console.log(`[${new Date().toISOString()}] POST /api/ingest from ${req.ip}`);
   console.log('Body:', req.body);
   try {
-    const { temperature, humidity, soil_raw, soil_pct } = req.body;
+    let { temperature, humidity, soil_raw, soil_pct } = req.body;
+    
+    // Calculate soil_pct from soil_raw if not provided or if it's 0
+    if (!soil_pct || soil_pct === 0) {
+      const SOIL_DRY_ADC = parseInt(process.env.SOIL_DRY_ADC) || 800;
+      const SOIL_WET_ADC = parseInt(process.env.SOIL_WET_ADC) || 300;
+      
+      // Calculate percentage: (raw - dry) / (wet - dry) * 100
+      // Clamp between 0 and 100
+      soil_pct = Math.max(0, Math.min(100, 
+        ((SOIL_DRY_ADC - soil_raw) / (SOIL_DRY_ADC - SOIL_WET_ADC)) * 100
+      ));
+      
+      console.log(`📊 Calculated soil_pct: ${soil_pct.toFixed(2)}% (raw: ${soil_raw})`);
+    }
     
     const sensorData = new SensorData({
       temperature,
@@ -581,6 +595,7 @@ app.post('/api/ingest', async (req, res) => {
     });
     
     await sensorData.save();
+    console.log(`✅ Data saved: Temp=${temperature}°C, Humidity=${humidity}%, Soil=${soil_pct.toFixed(2)}%`);
     res.status(201).json({ success: true, message: 'Data saved', id: sensorData._id });
   } catch (error) {
     console.error('Error saving data:', error);
