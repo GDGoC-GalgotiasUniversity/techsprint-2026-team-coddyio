@@ -25,19 +25,53 @@ class KisanGuideApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2E7D32), // Deep green for agriculture
+          seedColor: const Color(0xFF2E7D32),
           brightness: Brightness.light,
         ),
         useMaterial3: true,
         cardTheme: CardThemeData(
-          elevation: 4,
+          elevation: 2,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
         ),
-        appBarTheme: const AppBarTheme(centerTitle: true, elevation: 0),
+        appBarTheme: const AppBarTheme(
+          centerTitle: true,
+          elevation: 0,
+          backgroundColor: Colors.white,
+        ),
+        bottomNavigationBarTheme: BottomNavigationBarThemeData(
+          backgroundColor: Colors.white,
+          elevation: 8,
+          selectedItemColor: const Color(0xFF2E7D32),
+          unselectedItemColor: Colors.grey[400],
+          type: BottomNavigationBarType.fixed,
+        ),
+        floatingActionButtonTheme: const FloatingActionButtonThemeData(
+          backgroundColor: Color(0xFF2E7D32),
+          foregroundColor: Colors.white,
+        ),
       ),
-      home: const HomeScreen(),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF2E7D32),
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+        cardTheme: CardThemeData(
+          elevation: 2,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        appBarTheme: AppBarTheme(
+          centerTitle: true,
+          elevation: 0,
+          backgroundColor: Colors.grey[900],
+        ),
+      ),
+      themeMode: ThemeMode.system,
+      home: const MainNavigationScreen(),
     );
   }
 }

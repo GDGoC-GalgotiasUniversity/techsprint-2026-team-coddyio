@@ -7,10 +7,6 @@ import '../services/threshold_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/sensor_card.dart';
 import '../widgets/mini_chart.dart';
-import 'history_screen.dart';
-import 'ai_chat_screen.dart';
-import 'voice_agent_screen.dart';
-import 'plant_disease_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -54,7 +50,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (mounted) {
       setState(() {
         _plantStatus = status;
-        // Set plant name in controller if it exists
         if (status?.plantType != null) {
           _plantNameController.text = status!.plantType!;
         }
@@ -68,29 +63,19 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         _latestData = data;
         _isLoading = false;
-
-        // Add new reading to the list
         _recentReadings.add(data);
-
-        // Keep only the last 10 readings
         if (_recentReadings.length > _maxReadings) {
           _recentReadings.removeAt(0);
         }
       });
-
-      // Check thresholds and send notifications
       _checkThresholdsAndNotify(data);
     }
   }
 
-  /// Check sensor thresholds and send notifications
   Future<void> _checkThresholdsAndNotify(SensorData data) async {
     try {
       final alerts = await _thresholdService.checkThresholds(data);
-
       for (final alert in alerts) {
-        print('🔔 Alert: ${alert.title}');
-        // Show local notification
         await _notificationService.showNotification(
           title: alert.title,
           body: alert.message,
@@ -103,7 +88,7 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     } catch (e) {
-      print('Error checking thresholds: $e');
+      debugPrint('Error checking thresholds: $e');
     }
   }
 
@@ -123,6 +108,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   : '❌ Plant status updated',
             ),
             duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         );
       }
@@ -143,8 +132,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F8E9), // Light green background
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -161,508 +151,376 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        backgroundColor: Colors.white,
-        actions: [
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.nature, color: Color(0xFF2E7D32)),
-              tooltip: 'Plant Disease',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const PlantDiseaseScreen(),
-                  ),
-                );
-              },
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.mic, color: Color(0xFF2E7D32)),
-              tooltip: 'Voice Agent',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        VoiceAgentScreen(sensorData: _latestData),
-                  ),
-                );
-              },
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.only(right: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.psychology, color: Color(0xFF2E7D32)),
-              tooltip: 'AI Assistant',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AiChatScreen(sensorData: _latestData),
-                  ),
-                );
-              },
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.only(right: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.show_chart, color: Color(0xFF2E7D32)),
-              tooltip: 'History',
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const HistoryScreen(),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
       ),
       body: RefreshIndicator(
         onRefresh: _fetchLatestData,
-        color: const Color(0xFF2E7D32),
+        color: Theme.of(context).colorScheme.primary,
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : _latestData == null
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.sensors_off, size: 64, color: Colors.grey[400]),
-                    const SizedBox(height: 16),
-                    Text(
-                      'No sensor data available',
-                      style: TextStyle(fontSize: 16, color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-              )
-            : ListView(
-                padding: const EdgeInsets.all(16),
-                children: [
-                  // Welcome Card
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF2E7D32), Color(0xFF4CAF50)],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF2E7D32).withValues(alpha: 0.3),
-                          blurRadius: 12,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.wb_sunny,
-                            color: Colors.white,
-                            size: 32,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text(
-                                'Farm Status',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                _getStatusMessage(_latestData!),
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Plant Status Card
-                  Card(
-                    elevation: 4,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: const Color(
-                                    0xFF4CAF50,
-                                  ).withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Icon(
-                                  Icons.eco,
-                                  color: Color(0xFF2E7D32),
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              const Text(
-                                'Do you have a plant?',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF2E7D32),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: () => _updatePlantStatus(true),
-                                  icon: const Icon(Icons.check),
-                                  label: const Text('Yes, I have'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        _plantStatus?.hasPlant == true
-                                        ? Colors.green
-                                        : Colors.grey[300],
-                                    foregroundColor:
-                                        _plantStatus?.hasPlant == true
-                                        ? Colors.white
-                                        : Colors.black,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  onPressed: () => _updatePlantStatus(false),
-                                  icon: const Icon(Icons.close),
-                                  label: const Text('No, I don\'t'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor:
-                                        _plantStatus?.hasPlant == false
-                                        ? Colors.red
-                                        : Colors.grey[300],
-                                    foregroundColor:
-                                        _plantStatus?.hasPlant == false
-                                        ? Colors.white
-                                        : Colors.black,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          if (_plantStatus?.hasPlant == true) ...[
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: _plantNameController,
-                              decoration: InputDecoration(
-                                hintText:
-                                    'Enter plant name (e.g., Tomato, Rose)',
-                                prefixIcon: const Icon(Icons.local_florist),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 10,
-                                ),
-                              ),
-                              onChanged: (value) {
-                                _updatePlantStatus(true, plantName: value);
-                              },
-                            ),
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.green.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(
-                                    Icons.check_circle,
-                                    color: Colors.green,
-                                    size: 20,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _plantNameController.text.isNotEmpty
-                                          ? '🌱 ${_plantNameController.text} - Ready for disease detection'
-                                          : 'Great! You can use Plant Disease Detection',
-                                      style: const TextStyle(
-                                        color: Colors.green,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ] else if (_plantStatus?.hasPlant == false) ...[
-                            const SizedBox(height: 12),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(
-                                    Icons.info,
-                                    color: Colors.orange,
-                                    size: 20,
-                                  ),
-                                  SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'Plant Disease Detection will be available when you have a plant',
-                                      style: TextStyle(
-                                        color: Colors.orange,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Sensor Cards
-                  SensorCard(
-                    title: 'Temperature',
-                    value: '${_latestData!.temperature.toStringAsFixed(1)}°C',
-                    icon: Icons.thermostat,
-                    color: const Color(0xFFFF6F00),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFFFF8A00), Color(0xFFFF6F00)],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SensorCard(
-                    title: 'Humidity',
-                    value: '${_latestData!.humidity.toStringAsFixed(1)}%',
-                    icon: Icons.water_drop,
-                    color: const Color(0xFF0288D1),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF03A9F4), Color(0xFF0288D1)],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  SensorCard(
-                    title: 'Soil Moisture',
-                    value: '${_latestData!.soilPct.toStringAsFixed(1)}%',
-                    subtitle: 'Raw: ${_latestData!.soilRaw}',
-                    icon: Icons.grass,
-                    color: const Color(0xFF388E3C),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF4CAF50), Color(0xFF388E3C)],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Real-time Graphs Section
-                  if (_recentReadings.length > 1) ...[
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 8,
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: const Color(
-                                0xFF4CAF50,
-                              ).withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Icon(
-                              Icons.trending_up,
-                              color: Color(0xFF2E7D32),
-                              size: 18,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Live Trends',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF2E7D32),
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            'Last ${_recentReadings.length} readings',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    MiniChart(
-                      values: _getTemperatureValues(),
-                      color: const Color(0xFFFF6F00),
-                      title: 'Temperature',
-                      icon: Icons.thermostat,
-                    ),
-                    MiniChart(
-                      values: _getHumidityValues(),
-                      color: const Color(0xFF0288D1),
-                      title: 'Humidity',
-                      icon: Icons.water_drop,
-                    ),
-                    MiniChart(
-                      values: _getSoilMoistureValues(),
-                      color: const Color(0xFF388E3C),
-                      title: 'Soil Moisture',
-                      icon: Icons.grass,
-                    ),
-                    const SizedBox(height: 8),
-                  ],
-
-                  // Last Updated Card
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 8,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFF4CAF50,
-                            ).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: const Icon(
-                            Icons.update,
-                            size: 20,
-                            color: Color(0xFF2E7D32),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Last updated: ${_formatTime(_latestData!.timestamp)}',
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Color(0xFF616161),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            ? _buildEmptyState()
+            : _buildContent(isDark),
       ),
     );
   }
 
-  String _getStatusMessage(SensorData data) {
-    if (data.soilPct < 30) {
-      return 'Needs Water 💧';
-    } else if (data.temperature > 35) {
-      return 'Too Hot 🌡️';
-    } else if (data.humidity > 80) {
-      return 'High Humidity 💦';
-    } else {
-      return 'All Good 🌱';
-    }
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.sensors_off, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            'No sensor data available',
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: _fetchLatestData,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
   }
 
-  String _formatTime(DateTime time) {
-    final now = DateTime.now();
-    final diff = now.difference(time);
-    if (diff.inSeconds < 60) {
-      return '${diff.inSeconds}s ago';
-    }
-    if (diff.inMinutes < 60) {
-      return '${diff.inMinutes}m ago';
-    }
-    if (diff.inHours < 24) {
-      return '${diff.inHours}h ago';
-    }
-    return '${diff.inDays}d ago';
+  Widget _buildContent(bool isDark) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Welcome Card
+        _buildWelcomeCard(),
+        const SizedBox(height: 20),
+
+        // Plant Status Card
+        _buildPlantStatusCard(),
+        const SizedBox(height: 20),
+
+        // Sensor Cards
+        _buildSensorCardsGrid(),
+        const SizedBox(height: 20),
+
+        // Live Trends Section
+        _buildTrendsSection(),
+        const SizedBox(height: 20),
+
+        // Last Updated
+        _buildLastUpdatedCard(),
+      ],
+    );
+  }
+
+  Widget _buildWelcomeCard() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2E7D32), Color(0xFF4CAF50)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF2E7D32).withValues(alpha: 0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.wb_sunny, color: Colors.white, size: 32),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Welcome to KisanGuide',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Monitor your farm in real-time',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.9),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlantStatusCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.eco,
+                  color: Theme.of(context).colorScheme.primary,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  'Plant Status',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (_plantStatus?.hasPlant == true)
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.check_circle,
+                          color: Color(0xFF4CAF50),
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '🌱 ${_plantStatus?.plantType ?? "Plant"}',
+                          style: const TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF2E7D32),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => _updatePlantStatus(false),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey[300],
+                            foregroundColor: Colors.black87,
+                          ),
+                          child: const Text('No Plant'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {},
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4CAF50),
+                          ),
+                          child: const Text('Has Plant'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              )
+            else
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.cancel, color: Colors.red, size: 20),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'No plant selected',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () {},
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4CAF50),
+                          ),
+                          child: const Text('Yes, I have'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: () => _updatePlantStatus(false),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.grey[300],
+                            foregroundColor: Colors.black87,
+                          ),
+                          child: const Text('No Plant'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSensorCardsGrid() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Live Sensor Data',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        SensorCard(
+          title: 'Temperature',
+          value: '${_latestData?.temperature.toStringAsFixed(1)}°C',
+          subtitle: _getTemperatureStatus(),
+          icon: Icons.thermostat,
+          color: const Color(0xFFFF6F00),
+        ),
+        const SizedBox(height: 12),
+        SensorCard(
+          title: 'Humidity',
+          value: '${_latestData?.humidity.toStringAsFixed(1)}%',
+          subtitle: _getHumidityStatus(),
+          icon: Icons.water_drop,
+          color: const Color(0xFF0288D1),
+        ),
+        const SizedBox(height: 12),
+        SensorCard(
+          title: 'Soil Moisture',
+          value: '${_latestData?.soilPct.toStringAsFixed(1)}%',
+          subtitle: _getSoilStatus(),
+          icon: Icons.grain,
+          color: const Color(0xFF388E3C),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTrendsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Live Trends',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        MiniChart(
+          values: _getTemperatureValues(),
+          color: const Color(0xFFFF6F00),
+          title: 'Temperature Trend',
+          icon: Icons.thermostat,
+        ),
+        MiniChart(
+          values: _getHumidityValues(),
+          color: const Color(0xFF0288D1),
+          title: 'Humidity Trend',
+          icon: Icons.water_drop,
+        ),
+        MiniChart(
+          values: _getSoilMoistureValues(),
+          color: const Color(0xFF388E3C),
+          title: 'Soil Moisture Trend',
+          icon: Icons.grain,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLastUpdatedCard() {
+    return Card(
+      elevation: 1,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Row(
+          children: [
+            Icon(Icons.access_time, color: Colors.grey[600], size: 20),
+            const SizedBox(width: 8),
+            Text(
+              'Last updated: ${_latestData?.timestamp.toString().split('.')[0] ?? 'N/A'}',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _getTemperatureStatus() {
+    if (_latestData == null) return 'N/A';
+    final temp = _latestData!.temperature;
+    if (temp < 10) return '❄️ Cold';
+    if (temp > 35) return '🔥 Hot';
+    return '✅ Optimal';
+  }
+
+  String _getHumidityStatus() {
+    if (_latestData == null) return 'N/A';
+    final humidity = _latestData!.humidity;
+    if (humidity < 30) return '🏜️ Dry';
+    if (humidity > 80) return '💧 Humid';
+    return '✅ Optimal';
+  }
+
+  String _getSoilStatus() {
+    if (_latestData == null) return 'N/A';
+    final soil = _latestData!.soilPct;
+    if (soil < 30) return '🌵 Dry';
+    if (soil > 80) return '💦 Wet';
+    return '✅ Optimal';
   }
 }

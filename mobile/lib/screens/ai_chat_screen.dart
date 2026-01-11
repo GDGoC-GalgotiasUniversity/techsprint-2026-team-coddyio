@@ -4,6 +4,15 @@ import '../models/plant_status.dart';
 import '../services/gemini_service.dart';
 import '../services/api_service.dart';
 
+class ChatMessage {
+  final String text;
+  final bool isUser;
+  final DateTime timestamp;
+
+  ChatMessage({required this.text, required this.isUser, DateTime? timestamp})
+    : timestamp = timestamp ?? DateTime.now();
+}
+
 class AiChatScreen extends StatefulWidget {
   final SensorData? sensorData;
 
@@ -17,6 +26,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
   final GeminiService _geminiService = GeminiService();
   final ApiService _apiService = ApiService();
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final List<ChatMessage> _messages = [];
   bool _isLoading = false;
   PlantStatus? _plantStatus;
@@ -28,6 +38,13 @@ class _AiChatScreenState extends State<AiChatScreen> {
     _addMessage(_getGreetingMessage(), isUser: false);
   }
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   String _getGreetingMessage() {
     if (_plantStatus?.hasPlant == true && _plantStatus?.plantType != null) {
       return 'Hello! 🌱 I see you have a ${_plantStatus!.plantType}. I can help you care for it by answering questions about your sensor data. Try asking:\n\n'
@@ -35,7 +52,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
           '• "Should I water my ${_plantStatus!.plantType}?"\n'
           '• "What humidity does my ${_plantStatus!.plantType} need?"';
     }
-    return 'Hello! I can answer questions about your sensor data. Try asking:\n\n'
+    return 'Hello! 👋 I can answer questions about your sensor data. Try asking:\n\n'
         '• "Is the temperature normal?"\n'
         '• "Should I water the plant?"\n'
         '• "What\'s the humidity level?"';
@@ -53,6 +70,19 @@ class _AiChatScreenState extends State<AiChatScreen> {
   void _addMessage(String text, {required bool isUser}) {
     setState(() {
       _messages.add(ChatMessage(text: text, isUser: isUser));
+    });
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     });
   }
 
@@ -78,7 +108,6 @@ class _AiChatScreenState extends State<AiChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF1F8E9),
       appBar: AppBar(
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -86,12 +115,14 @@ class _AiChatScreenState extends State<AiChatScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withValues(alpha: 0.1),
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.psychology,
-                color: Color(0xFF2E7D32),
+                color: Theme.of(context).colorScheme.primary,
                 size: 24,
               ),
             ),
@@ -118,62 +149,69 @@ class _AiChatScreenState extends State<AiChatScreen> {
             ),
           ],
         ),
-        backgroundColor: Colors.white,
       ),
       body: Column(
         children: [
-          if (widget.sensorData != null)
-            Container(
-              margin: const EdgeInsets.all(12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildDataChip(
-                    '${widget.sensorData!.temperature.toStringAsFixed(1)}°C',
-                    Icons.thermostat,
-                    const Color(0xFFFF6F00),
-                  ),
-                  _buildDataChip(
-                    '${widget.sensorData!.humidity.toStringAsFixed(1)}%',
-                    Icons.water_drop,
-                    const Color(0xFF0288D1),
-                  ),
-                  _buildDataChip(
-                    '${widget.sensorData!.soilPct.toStringAsFixed(1)}%',
-                    Icons.grass,
-                    const Color(0xFF388E3C),
-                  ),
-                ],
-              ),
-            ),
+          // Sensor Data Display
+          if (widget.sensorData != null) _buildSensorDataBar(),
+
+          // Messages List
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: _messages.length,
-              itemBuilder: (context, index) {
-                final message = _messages[index];
-                return _buildMessageBubble(message);
-              },
-            ),
+            child: _messages.isEmpty
+                ? _buildEmptyState()
+                : ListView.builder(
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _messages.length,
+                    itemBuilder: (context, index) {
+                      return _buildMessageBubble(_messages[index]);
+                    },
+                  ),
           ),
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(8.0),
-              child: CircularProgressIndicator(),
-            ),
+
+          // Loading Indicator
+          if (_isLoading) _buildLoadingIndicator(),
+
+          // Input Field
           _buildInputField(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSensorDataBar() {
+    return Container(
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildDataChip(
+            '${widget.sensorData!.temperature.toStringAsFixed(1)}°C',
+            Icons.thermostat,
+            const Color(0xFFFF6F00),
+          ),
+          _buildDataChip(
+            '${widget.sensorData!.humidity.toStringAsFixed(1)}%',
+            Icons.water_drop,
+            const Color(0xFF0288D1),
+          ),
+          _buildDataChip(
+            '${widget.sensorData!.soilPct.toStringAsFixed(1)}%',
+            Icons.grass,
+            const Color(0xFF388E3C),
+          ),
         ],
       ),
     );
@@ -204,46 +242,120 @@ class _AiChatScreenState extends State<AiChatScreen> {
     );
   }
 
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            'Start a conversation',
+            style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildMessageBubble(ChatMessage message) {
-    return Align(
-      alignment: message.isUser ? Alignment.centerRight : Alignment.centerLeft,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
-        ),
-        decoration: BoxDecoration(
-          gradient: message.isUser
-              ? const LinearGradient(
-                  colors: [Color(0xFF2E7D32), Color(0xFF4CAF50)],
-                )
-              : null,
-          color: message.isUser ? null : Colors.white,
-          borderRadius: BorderRadius.only(
-            topLeft: const Radius.circular(20),
-            topRight: const Radius.circular(20),
-            bottomLeft: Radius.circular(message.isUser ? 20 : 4),
-            bottomRight: Radius.circular(message.isUser ? 4 : 20),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: message.isUser
-                  ? const Color(0xFF2E7D32).withValues(alpha: 0.3)
-                  : Colors.black.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        mainAxisAlignment: message.isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
+        children: [
+          if (!message.isUser)
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.psychology,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
-          ],
-        ),
-        child: Text(
-          message.text,
-          style: TextStyle(
-            color: message.isUser ? Colors.white : const Color(0xFF212121),
-            fontSize: 15,
-            height: 1.4,
+          const SizedBox(width: 8),
+          Flexible(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: message.isUser
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).cardColor,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: Text(
+                message.text,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: message.isUser ? Colors.white : Colors.black87,
+                  height: 1.4,
+                ),
+              ),
+            ),
           ),
-        ),
+          const SizedBox(width: 8),
+          if (message.isUser)
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: Theme.of(
+                  context,
+                ).colorScheme.primary.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.person,
+                size: 18,
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadingIndicator() {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation(
+                Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            'AI is thinking...',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[600],
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -252,10 +364,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 8,
             offset: const Offset(0, -2),
           ),
@@ -264,61 +376,57 @@ class _AiChatScreenState extends State<AiChatScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F8E9),
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: TextField(
-                controller: _controller,
-                decoration: const InputDecoration(
-                  hintText: 'Ask about your farm...',
-                  hintStyle: TextStyle(color: Color(0xFF9E9E9E)),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 14,
+            child: TextField(
+              controller: _controller,
+              decoration: InputDecoration(
+                hintText: 'Ask me anything...',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(color: Colors.grey[300]!),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 2,
                   ),
                 ),
-                onSubmitted: (_) => _sendMessage(),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                suffixIcon: _controller.text.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _controller.clear();
+                          setState(() {});
+                        },
+                      )
+                    : null,
               ),
+              onChanged: (value) {
+                setState(() {});
+              },
+              onSubmitted: (_) => _sendMessage(),
+              maxLines: null,
             ),
           ),
           const SizedBox(width: 8),
-          Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF2E7D32), Color(0xFF4CAF50)],
-              ),
-              borderRadius: BorderRadius.circular(24),
-              boxShadow: [
-                BoxShadow(
-                  color: const Color(0xFF2E7D32).withValues(alpha: 0.3),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: IconButton(
-              onPressed: _isLoading ? null : _sendMessage,
-              icon: const Icon(Icons.send, color: Colors.white),
+          FloatingActionButton(
+            mini: true,
+            onPressed: _isLoading ? null : _sendMessage,
+            child: Icon(
+              Icons.send,
+              color: _isLoading ? Colors.grey : Colors.white,
             ),
           ),
         ],
       ),
     );
   }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-}
-
-class ChatMessage {
-  final String text;
-  final bool isUser;
-
-  ChatMessage({required this.text, required this.isUser});
 }
